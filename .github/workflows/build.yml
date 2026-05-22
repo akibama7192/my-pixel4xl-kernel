@@ -46,17 +46,18 @@ jobs:
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # РАДИКАЛЬНОЕ РЕШЕНИЕ: Отключаем 32-битную совместимость, полностью уничтожая ошибку vdso32
-          sed -i 's/CONFIG_COMPAT=y/CONFIG_COMPAT=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_COMPAT=n" >> arch/arm64/configs/floral_defconfig
+          # Отключаем только ломающийся 32-битный подмодуль vdso32
+          sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
           
-          # Принудительно отключаем Stack Protector и авто-инициализацию переменных
-          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
+          # КРИТИЧЕСКИЙ ШАГ: Возвращаем Stack Protector на место для исправления ошибки dfc_qmi.c
+          sed -i 's/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/CONFIG_CC_STACKPROTECTOR_STRONG=y/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_CC_STACKPROTECTOR_STRONG=y" >> arch/arm64/configs/floral_defconfig
+          
+          # Зачищаем остальные конфликты
+          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
-          
-          # Вырезаем флаг инициализации
           sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
           
           # Активируем модули рута и маскировки SUSFS для работы банковских приложений
@@ -80,9 +81,9 @@ jobs:
           # Применяем конфигурацию Kirisakura (floral_defconfig)
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Запускаем финальную компиляцию несжатого ядра Image
+          # Запускаем компиляцию ядра с жестким указанием целевой архитектуры компилятора --target
           make O=out \
-            CC=$CLANG_BIN/clang \
+            CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
