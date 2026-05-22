@@ -39,11 +39,20 @@ jobs:
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # Используем альтернативный короткий адрес API, чтобы обойти баг автозамены
-          RAW_URL="https: / /github.com / repos / rifsxd / KernelSU-Next / contents / kernel / setup.sh"
-          NEXT_URL=$(echo "$RAW_URL" | tr -d ' ')
-          # Скачиваем и декодируем скрипт напрямую из API GitHub
-          curl -LSs -H "Accept: application/vnd.github.v3.raw" "$NEXT_URL" | bash -s next
+          RAW_URL="https: / / github.com / rifsxd / KernelSU-Next.git"
+          KSUNEXT_REPO=$(echo "$RAW_URL" | tr -d ' ')
+          
+          # Легальное внедрение исходников KSU-Next в ядро 4.14
+          git submodule add "$KSUNEXT_REPO" KernelSU
+          cd KernelSU && git checkout next && cd ..
+          
+          # Накатываем интеграцию в главный Makefile ядра вручную
+          echo "obj-y += KernelSU/" >> drivers/Makefile
+          
+          # Добавляем принудительную активацию KSU и SUSFS в конфигурацию
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
 
       - name: Compile Kernel Image
         run: |
