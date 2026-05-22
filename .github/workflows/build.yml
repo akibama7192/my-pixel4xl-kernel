@@ -39,10 +39,11 @@ jobs:
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # Ссылка с пробелами на живой скрипт интеграции KernelSU-Next
-          RAW_URL="https: / / githubusercontent.com / rifsxd / KernelSU-Next / next / kernel / setup.sh"
+          # Используем альтернативный короткий адрес API, чтобы обойти баг автозамены
+          RAW_URL="https: / /github.com / repos / rifsxd / KernelSU-Next / contents / kernel / setup.sh"
           NEXT_URL=$(echo "$RAW_URL" | tr -d ' ')
-          curl -LSs "$NEXT_URL" | bash -s next
+          # Скачиваем и декодируем скрипт напрямую из API GitHub
+          curl -LSs -H "Accept: application/vnd.github.v3.raw" "$NEXT_URL" | bash -s next
 
       - name: Compile Kernel Image
         run: |
@@ -63,6 +64,7 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld \
             -j$(nproc)
