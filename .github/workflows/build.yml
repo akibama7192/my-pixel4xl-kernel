@@ -32,7 +32,6 @@ jobs:
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          # Возвращаемся к кастомному ядру Kirisakura, где исправлен планировщик core.c
           RAW_URL="github.com_freak07_FLORAL"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           git clone --depth=1 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
@@ -47,7 +46,11 @@ jobs:
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Принудительно отключаем Stack Protector и авто-инициализацию переменных в конфиге Kirisakura
+          # КРИТИЧЕСКИЙ ШАГ: Отключаем сборку ломающегося 32-битного подмодуля vdso32
+          sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
+          
+          # Принудительно отключаем Stack Protector и авто-инициализацию переменных
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
@@ -55,7 +58,7 @@ jobs:
           # Вырезаем флаг инициализации
           sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
           
-          # Активируем модули рута и маскировки SUSFS для прохождения проверок банков
+          # Активируем модули рута и маскировки SUSFS для работы банковских приложений
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
@@ -76,7 +79,7 @@ jobs:
           # Применяем конфигурацию Kirisakura (floral_defconfig)
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Запускаем финальную компиляцию несжатого ядра Image
+          # Запускаем компиляцию несжатого ядра Image
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -87,8 +90,6 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
-            LLVM=1 \
-            LLVM_IAS=1 \
             Image \
             -j$(nproc)
 
