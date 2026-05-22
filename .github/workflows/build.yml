@@ -24,37 +24,37 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          RAW_URL="https: / / github.com / kdrag0n / proton-clang.git"
-          CLANG_REPO=$(echo "$RAW_URL" | tr -d ' ')
+          RAW_URL="github.com / kdrag0n / proton-clang.git"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          git clone --depth=1 "$CLANG_REPO" clang
+          git clone --depth=1 "https://${CLEAN_URL}" clang
 
-      - name: Clone Clean Pixel 4 XL Kernel Source
+      - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          # Переключаемся на официальные чистые исходники ядра Pixel 4 XL (coral), где нет ломающих флагов
-          RAW_URL="https: / / github.com / kdrag0n / android_kernel_google_msm-4.14.git"
-          KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
-          git clone --depth=1 -b sc-qpr3 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
+          # Убрали протокол из строки, чтобы браузер не ломал текст
+          RAW_URL="android.googlesource.com / kernel / msm.git"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
+          git clone --depth=1 -b android-msm-coral-4.14-android13 "https://${CLEAN_URL}" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          RAW_URL="https: / / github.com / rifsxd / KernelSU-Next.git"
-          KSUNEXT_REPO=$(echo "$RAW_URL" | tr -d ' ')
+          RAW_URL="github.com / rifsxd / KernelSU-Next.git"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           
-          # Чистая интеграция подмодуля
-          git submodule add "$KSUNEXT_REPO" KernelSU
+          # Интеграция подмодуля
+          git submodule add "https://${CLEAN_URL}" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Принудительно отключаем абсолютно все проверки, которые вызывали ошибки ранее
-          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig
-          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/coral_defconfig
-          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/coral_defconfig
-          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/coral_defconfig
-          sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile
+          # Зачищаем любые возможные конфликты флагов безопасности
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
           
-          # Включаем KernelSU-Next и маскировку SUSFS для банков
+          # Активируем KSU-Next и маскировку SUSFS
           echo "CONFIG_KSU=y" >> arch/arm64/configs/coral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/coral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/coral_defconfig
@@ -70,13 +70,12 @@ jobs:
           cd $GITHUB_WORKSPACE/kernel
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          # Полная изоляция PATH
           export PATH=/usr/bin:/bin:$PATH
           
-          # Генерируем конфигурацию под процессор Pixel 4 XL (coral)
+          # Создаем конфигурацию под Pixel 4 XL
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
-          # Запускаем чистую финальную компиляцию ядра
+          # Финальный запуск компиляции
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -92,5 +91,5 @@ jobs:
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Pixel4XL-KSU-Next-Kernel
+          name: Pixel4XL-Google-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image.gz
