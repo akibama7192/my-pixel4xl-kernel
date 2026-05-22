@@ -22,34 +22,38 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
 
-      - name: Download Google Clang Compiler
+      - name: Download Proton Clang Compiler
         run: |
+          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
+          RAW_URL="https://github.com/kdrag0n/proton-clang.git"
+          CLANG_REPO=$(echo "$RAW_URL" | tr -d ' ')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          # Качаем официальный проверенный компилятор Clang r416183b от Google для Android 13
-          git clone --depth=1 -b ndk-r23-release https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 clang
-          # Качаем необходимые бинарные утилиты (GCC/Linker) для сборки ядра 4.14
-          git clone --depth=1 -b master https://googlesource.com gcc
+          git clone --depth=1 "$CLANG_REPO" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          git clone --depth=1 -b android-13 https://github.com $GITHUB_WORKSPACE/kernel
+          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
+          RAW_URL="https://github.com/freak07/FLORAL.git"
+          KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
+          git clone --depth=1 -b android-13 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate ReSukiSU Source Code
         run: |
+          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
+          RAW_URL="https://githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh"
+          SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           cd $GITHUB_WORKSPACE/kernel
-          curl -LSs https://githubusercontent.com | bash -s main
+          curl -LSs "$SETUP_URL" | bash -s main
 
       - name: Compile Kernel Image
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$GITHUB_WORKSPACE/toolchain/gcc/bin:$PATH
+          export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-android-
-          export CLANG_TRIPLE=aarch64-linux-gnu-
           make O=out floral_defconfig
-          make O=out CC=clang -j$(nproc)
+          make O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 -j$(nproc)
 
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
