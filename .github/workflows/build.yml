@@ -30,11 +30,11 @@ jobs:
           cd $GITHUB_WORKSPACE/toolchain
           git clone --depth=1 "https://$CLEAN_URL" clang
 
-      - name: Clone Google AOSP Pixel 4 XL Kernel Source
+      - name: Clone Kirisakura Kernel Source
         run: |
-          RAW_URL="android.googlesource.com_kernel_msm"
+          RAW_URL="github.com_freak07_FLORAL"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
-          git clone --depth=1 -b android-msm-coral-4.14-android13 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
+          git clone --depth=1 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
@@ -42,30 +42,27 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # Скачиваем стабильную legacy ветку для ядер 4.14
+          # Скачиваем стабильную legacy ветку с маскировкой SUSFS
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Физически стираем ломающую строчку ошибки из кода планировщика Google
-          sed -i '/Unsupported NR_CPUS for lb tracepoint/d' include/trace/events/sched.h || true
+          # РАДИКАЛЬНОЕ РЕШЕНИЕ: Отключаем 32-битную совместимость, полностью уничтожая ошибку vdso32
+          sed -i 's/CONFIG_COMPAT=y/CONFIG_COMPAT=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_COMPAT=n" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
           
-          # Принудительно задаем параметры процессора Snapdragon 855 (8 ...)
-          echo "CONFIG_SMP=y" >> arch/arm64/configs/coral_defconfig
-          echo "CONFIG_NR_CPUS=8" >> arch/arm64/configs/coral_defconfig
+          # Принудительно отключаем Stack Protector и авто-инициализацию переменных
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           
-          # Зачищаем любые возможные конфликты флагов безопасности
-          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
-          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/coral_defconfig || true
-          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
-          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
-          
-          # Вырезаем флаг инициализации переменных
+          # Вырезаем флаг инициализации
           sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
           
           # Активируем модули рута и маскировки SUSFS для работы банковских приложений
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/coral_defconfig
-          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/coral_defconfig
-          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
 
       - name: Compile Kernel Image
         env:
@@ -80,10 +77,10 @@ jobs:
           
           export PATH=/usr/bin:/bin:$PATH
           
-          # Применяем официальный заводской coral_defconfig
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
+          # Применяем конфигурацию Kirisakura (floral_defconfig)
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Исправлено имя цели: собираем чистый образ Image
+          # Запускаем финальную компиляцию несжатого ядра Image
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -94,14 +91,11 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
-            LLVM=1 \
-            LLVM_IAS=1 \
             Image \
             -j$(nproc)
 
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Pixel4XL-Google-KSU-Next-Kernel
-          # Исправлен путь к готовому скомпилированному файлу ядра
+          name: Kirisakura-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image
