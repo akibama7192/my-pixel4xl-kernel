@@ -42,17 +42,17 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # Скачиваем исходники KSU-Next
+          # Скачиваем исходники KSU-Next во временную папку
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
           
-          # Запускаем установщик из корня ядра
+          # ИСПРАВЛЕНИЕ: Правим ошибку типов данных в реальном файле ksu.c до создания виртуальной ссылки
+          sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
+          
+          # Запускаем установщик разработчиков из корня ядра
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
-          # Исправление совместимости пространства имен в ksu.c под Android 13
-          sed -i 's/\&init_user_ns/current_user_ns()/g' drivers/ksu/ksu.c || true
-          
-          # ТОЧНАЯ ЗАЧИСТКА ФЛАГА ZERO: Меняем только в сборочных файлах Makefile, не ломая исходный код рута
+          # ТОЧНАЯ ЗАЧИСТКА ФЛАГА ZERO: Меняем только в сборочных файлах Makefile
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
