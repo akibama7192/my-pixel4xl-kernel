@@ -42,13 +42,13 @@ jobs:
           RAW_URL="https: / / github.com / rifsxd / KernelSU-Next.git"
           KSUNEXT_REPO=$(echo "$RAW_URL" | tr -d ' ')
           
-          # Интеграция подмодуля без принудительного переключения веток
+          # Интеграция подмодуля
           git submodule add "$KSUNEXT_REPO" KernelSU
           
-          # Прописываем интеграцию в главный Makefile ядра (в корневой папке)
+          # Прописываем интеграцию в главный Makefile ядра
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Принудительно включаем KSU и маскировку в конфигурационный файл
+          # Включаем KSU и маскировку SUSFS в конфигурацию
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
@@ -59,11 +59,15 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld floral_defconfig
-          
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
+          export PATH=$CLANG_BIN:$PATH
+          
+          # Конфигурация ядра с явным указанием компилятора и его целевой архитектуры
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" floral_defconfig
+          
+          # Финальная компиляция
           make O=out \
-            CC=$CLANG_BIN/clang \
+            CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
