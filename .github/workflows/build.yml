@@ -42,14 +42,14 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Скачиваем стабильную legacy ветку для ядер 4.14
+          # Скачиваем стабильную legacy ветку для ядер 4.14
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
           # Физически стираем ломающую строчку ошибки из кода планировщика Google
           sed -i '/Unsupported NR_CPUS for lb tracepoint/d' include/trace/events/sched.h || true
           
-          # Принудительно задаем параметры процессора Snapdragon 855 (8 ядер)
+          # Принудительно задаем параметры процессора Snapdragon 855 (8 ...)
           echo "CONFIG_SMP=y" >> arch/arm64/configs/coral_defconfig
           echo "CONFIG_NR_CPUS=8" >> arch/arm64/configs/coral_defconfig
           
@@ -83,7 +83,7 @@ jobs:
           # Применяем официальный заводской coral_defconfig
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
-          # Компилируем строго образ ядра Image.gz
+          # Исправлено имя цели: собираем чистый образ Image
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -96,11 +96,12 @@ jobs:
             HOSTLD=/usr/bin/ld.bfd \
             LLVM=1 \
             LLVM_IAS=1 \
-            Image.gz \
+            Image \
             -j$(nproc)
 
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
           name: Pixel4XL-Google-KSU-Next-Kernel
-          path: kernel/out/arch/arm64/boot/Image.gz
+          # Исправлен путь к готовому скомпилированному файлу ядра
+          path: kernel/out/arch/arm64/boot/Image
