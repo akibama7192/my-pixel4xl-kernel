@@ -24,9 +24,7 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          # В строке нет знаков слэша, браузер её не испортит
           RAW_URL="github.com  kdrag0n  proton-clang"
-          # Робот убирает лишние пробелы и заменяет оставшийся двойной пробел на слэш
           CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
@@ -34,39 +32,36 @@ jobs:
 
       - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          # В строке нет знаков слэша, браузер её не испортит
-          RAW_URL="android.googlesource.com  kernel  msm"
+          RAW_URL="://googlesource.com  kernel  msm"
           CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           git clone --depth=1 -b android-msm-coral-4.14-android13 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # В строке нет знаков слэша, браузер её не испортит
           RAW_URL="github.com  rifsxd  KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           
-          # Чистая интеграция подмодуля root-доступа
           git submodule add "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Отключаем проблемные проверки компилятора в конфигурациях
-          for config in arch/arm64/configs/coral_defconfig arch/arm64/configs/bms_defconfig; do
-            if [ -f "$config" ]; then
-              sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' "$config" || true
-              sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' "$config" || true
-              sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' "$config" || true
-              sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' "$config" || true
-              
-              # Принудительно включаем модули рута и маскировки SUSFS для банков
-              echo "CONFIG_KSU=y" >> "$config"
-              echo "CONFIG_KSU_NEXT=y" >> "$config"
-              echo "CONFIG_KSU_SUSFS=y" >> "$config"
-            fi
-          done
+          # Отключаем отладочную трассировку логов в coral_defconfig (это полностью уберет ошибку fork.c)
+          sed -i 's/CONFIG_SCHED_INFO=y/CONFIG_SCHED_INFO=n/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_SCHEDSTATS=y/CONFIG_SCHEDSTATS=n/g' arch/arm64/configs/coral_defconfig || true
           
-          # Зачищаем флаги автоматической инициализации из главного Makefile ядра
+          # Зачищаем любые возможные конфликты флагов безопасности
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/coral_defconfig || true
+          
+          # Вырезаем флаг инициализации переменных
           sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
+          
+          # Активируем модули рута и маскировки SUSFS для работы банковских приложений
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/coral_defconfig
 
       - name: Compile Kernel Image
         env:
@@ -79,11 +74,10 @@ jobs:
           cd $GITHUB_WORKSPACE/kernel
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          # Полная изоляция PATH для безопасной сборки утилит хоста
           export PATH=/usr/bin:/bin:$PATH
           
-          # Применяем релизный bms_defconfig от Google без ошибок планировщика в fork.c
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd bms_defconfig
+          # Применяем официальный заводской coral_defconfig
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
           # Запускаем финальную компиляцию ядра
           make O=out \
@@ -103,3 +97,4 @@ jobs:
         with:
           name: Pixel4XL-Google-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image.gz
+
