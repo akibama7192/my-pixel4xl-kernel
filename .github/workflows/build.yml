@@ -45,10 +45,10 @@ jobs:
           # Скачиваем исходники KSU-Next во временную папку
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
           
-          # ИСПРАВЛЕНИЕ: Правим ошибку типов данных в реальном файле ksu.c до создания виртуальной ссылки
+          # Исправляем ошибку типов данных пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
           
-          # Запускаем установщик разработчиков из корня ядра
+          # Запускаем официальный установщик разработчиков из корня ядра
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
@@ -56,9 +56,11 @@ jobs:
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          # Отключаем ломающую сборку архивацию configs.o
-          sed -i 's/CONFIG_IKCONFIG=y/CONFIG_IKCONFIG=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_IKCONFIG=n" >> arch/arm64/configs/floral_defconfig
+          # ИСПРАВЛЕНИЕ ОШИБКИ FS/OPEN.C: Включаем обратно IKCONFIG, но гасим тяжелую компиляцию PROC для обхода ошибки памяти
+          sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
+          sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
+          echo "CONFIG_IKCONFIG_PROC=n" >> arch/arm64/configs/floral_defconfig
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
