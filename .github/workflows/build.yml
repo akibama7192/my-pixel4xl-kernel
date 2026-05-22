@@ -62,6 +62,10 @@ jobs:
           echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_IKCONFIG_PROC=n" >> arch/arm64/configs/floral_defconfig
           
+          # ФИКС СБОЯ СБОРКИ ТАБЛИЦ УСТРОЙСТВ: Отключаем принудительное создание appended DTB образов
+          sed -i 's/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n" >> arch/arm64/configs/floral_defconfig
+          
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
@@ -94,13 +98,13 @@ jobs:
           
           export PATH=/usr/bin:/bin:$PATH
           
-          # Применяем конфигурацию Kirisakura через стандартный линковщик хоста
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
+          # Возвращаем LLVM=1, чтобы распаковка Wireguard и внутренние скрипты Kconfig отработали без сбоев
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd CC=$CLANG_BIN/clang LD=$CLANG_BIN/ld.lld AR=$CLANG_BIN/llvm-ar NM=$CLANG_BIN/llvm-nm OBJCOPY=$CLANG_BIN/llvm-objcopy OBJDUMP=$CLANG_BIN/llvm-objdump STRIP=$CLANG_BIN/llvm-strip LLVM=1 LLVM_IAS=1 floral_defconfig
           
           # Автоматически принимаем все изменения конфигурации
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd CC=$CLANG_BIN/clang LD=$CLANG_BIN/ld.lld AR=$CLANG_BIN/llvm-ar NM=$CLANG_BIN/llvm-nm OBJCOPY=$CLANG_BIN/llvm-objcopy OBJDUMP=$CLANG_BIN/llvm-objdump STRIP=$CLANG_BIN/llvm-strip LLVM=1 LLVM_IAS=1 olddefconfig
           
-          # ИСПРАВЛЕНИЕ: Убраны лишние LLVM_IAS флаги на верхнем уровне команды make, чтобы склейка прошла без сбоев
+          # Запускаем компиляцию строго самого файла ядра Image
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -111,6 +115,8 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
+            LLVM=1 \
+            LLVM_IAS=1 \
             Image \
             -j$(nproc)
 
