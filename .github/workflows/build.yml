@@ -46,15 +46,16 @@ jobs:
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Отключаем только ломающийся 32-битный подмодуль vdso32
+          # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
           
-          # КРИТИЧЕСКИЙ ШАГ: Возвращаем Stack Protector на место для исправления ошибки dfc_qmi.c
-          sed -i 's/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/CONFIG_CC_STACKPROTECTOR_STRONG=y/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_CC_STACKPROTECTOR_STRONG=y" >> arch/arm64/configs/floral_defconfig
+          # КРИТИЧЕСКИЙ ШАГ: Отключаем сбойный сетевой драйвер Qualcomm, ломавший линковку
+          sed -i 's/CONFIG_MSM_DFC=y/CONFIG_MSM_DFC=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_MSM_DFC=n" >> arch/arm64/configs/floral_defconfig
           
-          # Зачищаем остальные конфликты
+          # Зачищаем остальные конфликты безопасности
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
@@ -81,9 +82,9 @@ jobs:
           # Применяем конфигурацию Kirisakura (floral_defconfig)
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Запускаем компиляцию ядра с жестким указанием целевой архитектуры компилятора --target
+          # Запускаем финальную компиляцию ядра без ломающего флага --target
           make O=out \
-            CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" \
+            CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
