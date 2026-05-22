@@ -94,13 +94,13 @@ jobs:
           
           export PATH=/usr/bin:/bin:$PATH
           
-          # Применяем конфигурацию Kirisakura
+          # Применяем конфигурацию Kirisakura через стандартный линковщик хоста
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
           # Автоматически принимаем все изменения конфигурации
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
-          # Запускаем компиляцию несжатого ядра Image с флагом LLVM_IAS=1
+          # ИСПРАВЛЕНИЕ: Убраны лишние LLVM_IAS флаги на верхнем уровне команды make, чтобы склейка прошла без сбоев
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -111,8 +111,6 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
-            LLVM=1 \
-            LLVM_IAS=1 \
             Image \
             -j$(nproc)
 
