@@ -24,28 +24,31 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          RAW_URL="github.com  kdrag0n  proton-clang"
-          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
+          # Ссылка написана через подчеркивания, браузер её не испортит
+          RAW_URL="github.com_kdrag0n_proton-clang"
+          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
           git clone --depth=1 "https://$CLEAN_URL" clang
 
       - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          RAW_URL="://googlesource.com  kernel  msm"
-          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
+          # Ссылка написана через подчеркивания, браузер её не испортит
+          RAW_URL="android.googlesource.com_kernel_msm"
+          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           git clone --depth=1 -b android-msm-coral-4.14-android13 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          RAW_URL="github.com  rifsxd  KernelSU-Next"
-          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
+          # Ссылка написана через подчеркивания, браузер её не испортит
+          RAW_URL="github.com_rifsxd_KernelSU-Next"
+          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
           git submodule add "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Отключаем отладочную трассировку логов в coral_defconfig (это полностью уберет ошибку fork.c)
+          # Отключаем отладочную трассировку логов в coral_defconfig
           sed -i 's/CONFIG_SCHED_INFO=y/CONFIG_SCHED_INFO=n/g' arch/arm64/configs/coral_defconfig || true
           sed -i 's/CONFIG_SCHEDSTATS=y/CONFIG_SCHEDSTATS=n/g' arch/arm64/configs/coral_defconfig || true
           
@@ -97,4 +100,3 @@ jobs:
         with:
           name: Pixel4XL-Google-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image.gz
-
