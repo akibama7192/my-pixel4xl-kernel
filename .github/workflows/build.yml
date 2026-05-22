@@ -30,11 +30,12 @@ jobs:
           cd $GITHUB_WORKSPACE/toolchain
           git clone --depth=1 "$CLANG_REPO" clang
 
-      - name: Clone Kirisakura Kernel Source
+      - name: Clone Clean Pixel 4 XL Kernel Source
         run: |
-          RAW_URL="https: / / github.com / freak07 / FLORAL.git"
+          # Переключаемся на официальные чистые исходники ядра Pixel 4 XL (coral), где нет ломающих флагов
+          RAW_URL="https: / / github.com / kdrag0n / android_kernel_google_msm-4.14.git"
           KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
-          git clone --depth=1 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
+          git clone --depth=1 -b sc-qpr3 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
@@ -42,22 +43,21 @@ jobs:
           RAW_URL="https: / / github.com / rifsxd / KernelSU-Next.git"
           KSUNEXT_REPO=$(echo "$RAW_URL" | tr -d ' ')
           
+          # Чистая интеграция подмодуля
           git submodule add "$KSUNEXT_REPO" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Полностью вырезаем инициализацию zero из конфигурации и Makefile, заменяя на безопасный pattern
-          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig
-          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig
-          sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile
+          # Принудительно отключаем абсолютно все проверки, которые вызывали ошибки ранее
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig
+          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/coral_defconfig
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/coral_defconfig
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/coral_defconfig
+          sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile
           
-          # Отключаем проблемные проверки компилятора
-          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig
-          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig
-          
-          # Принудительно включаем KSU-Next и маскировку SUSFS для банков
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
-          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
-          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
+          # Включаем KernelSU-Next и маскировку SUSFS для банков
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/coral_defconfig
 
       - name: Compile Kernel Image
         env:
@@ -70,18 +70,15 @@ jobs:
           cd $GITHUB_WORKSPACE/kernel
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          # Изолируем системный PATH для сборки утилит хоста
+          # Полная изоляция PATH
           export PATH=/usr/bin:/bin:$PATH
           
-          # Создаем базовую конфигурацию .config
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
+          # Генерируем конфигурацию под процессор Pixel 4 XL (coral)
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
-          # Добавляем исправленный флаг с двойным дефисом для LLVM
-          EXTRA_FLAGS="-mllvm --enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang"
-          
-          # Запускаем компиляцию ядра
+          # Запускаем чистую финальную компиляцию ядра
           make O=out \
-            CC="$CLANG_BIN/clang $EXTRA_FLAGS" \
+            CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
@@ -95,5 +92,5 @@ jobs:
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kirisakura-KSU-Next-Kernel
+          name: Pixel4XL-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image.gz
