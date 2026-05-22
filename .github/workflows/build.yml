@@ -1,4 +1,4 @@
-name: Build Pixel 4 XL ReSukiSU Kernel
+name: Build Pixel 4 XL KSU-Next Kernel
 on:
   workflow_dispatch:
 
@@ -36,15 +36,13 @@ jobs:
           KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
 
-      - name: Integrate ReSukiSU Source Code
+      - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # Ссылка разбита на части, чтобы обойти баг автозамены браузера
-          PART1="https: / / raw.githubusercontent.com"
-          PART2="https: / /ReSukiSU / ReSukiSU / main / kernel / setup.sh"
-          RAW_URL="${PART1} / ${PART2}"
-          SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
-          curl -LSs "$SETUP_URL" | bash -s main
+          # Ссылка с пробелами на живой скрипт интеграции KernelSU-Next
+          RAW_URL="https: / / githubusercontent.com / rifsxd / KernelSU-Next / next / kernel / setup.sh"
+          NEXT_URL=$(echo "$RAW_URL" | tr -d ' ')
+          curl -LSs "$NEXT_URL" | bash -s next
 
       - name: Compile Kernel Image
         run: |
@@ -72,5 +70,5 @@ jobs:
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kirisakura-ReSukiSU-Kernel
+          name: Kirisakura-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image.gz
