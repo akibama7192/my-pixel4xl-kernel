@@ -56,7 +56,7 @@ jobs:
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          # Включаем IKCONFIG обратно, но гасим PROC для обхода ошибки памяти
+          # ИСПРАВЛЕНИЕ ОШИБКИ FS/OPEN.C: Включаем обратно IKCONFIG, но гасим тяжелую компиляцию PROC для обхода ошибки памяти
           sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
@@ -100,7 +100,7 @@ jobs:
           # Автоматически принимаем все изменения конфигурации
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
-          # КРИТИЧЕСКИЙ ФИКС: Добавлена явная цель Image, чтобы собрать только ядро без сбойных DTB таблиц
+          # Запускаем компиляцию несжатого ядра Image с флагом LLVM_IAS=1
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
