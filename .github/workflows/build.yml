@@ -42,11 +42,12 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # Называем папку ksu маленькими буквами для обхода системного фильтра
+          # Скачиваем стабильную legacy ветку в папку drivers/ksu
           git clone --depth=1 -b legacy "https://$CLEAN_URL" drivers/ksu
           
-          # Внедряем рут напрямую в Makefile драйверов, минуя защиту главного Makefile
+          # РЕГИСТРАЦИЯ МОДУЛЯ: Внедряем рут в Makefile и Kconfig драйверов ядра
           echo "obj-y += ksu/" >> drivers/Makefile
+          echo 'source "drivers/ksu/Kconfig"' >> drivers/Kconfig
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
@@ -84,7 +85,7 @@ jobs:
           # Применяем конфигурацию Kirisakura
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Автоматически принимаем все изменения конфигурации
+          # Автоматически принимаем все изменения конфигурации без ошибок
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
           # Запускаем моментальную финальную сборку ядра
