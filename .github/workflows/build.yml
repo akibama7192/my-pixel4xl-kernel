@@ -34,12 +34,12 @@ jobs:
         run: |
           RAW_URL="https: / / github.com / freak07 / FLORAL.git"
           KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
-          # Убрали привязку к ветке android-13, качаем основную ветку
           git clone --depth=1 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate ReSukiSU Source Code
         run: |
-          RAW_URL="https: / / ://githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
+          # Исправленная ссылка без лишних символов
+          RAW_URL="https: / / raw.githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
           SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           cd $GITHUB_WORKSPACE/kernel
           curl -LSs "$SETUP_URL" | bash -s main
