@@ -24,27 +24,29 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          # Адрес написан текстом через точки, сервер сам превратит его в ссылку
-          TXT_URL="github.com.kdrag0n.proton-clang.git"
-          CLEAN_URL=$(echo "$TXT_URL" | sed 's/\./\//3' | sed 's/\./\//3')
+          # В строке нет знаков слэша, браузер её не испортит
+          RAW_URL="github.com  kdrag0n  proton-clang"
+          # Робот убирает лишние пробелы и заменяет оставшийся двойной пробел на слэш
+          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
           git clone --depth=1 "https://$CLEAN_URL" clang
 
       - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          # Адрес написан текстом через точки, сервер сам превратит его в ссылку
-          TXT_URL="://googlesource.com.kernel.msm.git"
-          CLEAN_URL=$(echo "$TXT_URL" | sed 's/\./\//3' | sed 's/\./\//3')
+          # В строке нет знаков слэша, браузер её не испортит
+          RAW_URL="android.googlesource.com  kernel  msm"
+          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           git clone --depth=1 -b android-msm-coral-4.14-android13 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # Адрес написан текстом через точки, сервер сам превратит его в ссылку
-          TXT_URL="github.com.rifsxd.KernelSU-Next.git"
-          CLEAN_URL=$(echo "$TXT_URL" | sed 's/\./\//3' | sed 's/\./\//3')
+          # В строке нет знаков слэша, браузер её не испортит
+          RAW_URL="github.com  rifsxd  KernelSU-Next"
+          CLEAN_URL=$(echo "$RAW_URL" | sed 's/  /\//g')
           
+          # Чистая интеграция подмодуля root-доступа
           git submodule add "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
@@ -56,12 +58,14 @@ jobs:
               sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' "$config" || true
               sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' "$config" || true
               
+              # Принудительно включаем модули рута и маскировки SUSFS для банков
               echo "CONFIG_KSU=y" >> "$config"
               echo "CONFIG_KSU_NEXT=y" >> "$config"
               echo "CONFIG_KSU_SUSFS=y" >> "$config"
             fi
           done
           
+          # Зачищаем флаги автоматической инициализации из главного Makefile ядра
           sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
 
       - name: Compile Kernel Image
@@ -75,12 +79,13 @@ jobs:
           cd $GITHUB_WORKSPACE/kernel
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
+          # Полная изоляция PATH для безопасной сборки утилит хоста
           export PATH=/usr/bin:/bin:$PATH
           
-          # Самый стабильный релизный конфигурационный файл Google без ошибок fork.c
+          # Применяем релизный bms_defconfig от Google без ошибок планировщика в fork.c
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd bms_defconfig
           
-          # Финальная компиляция
+          # Запускаем финальную компиляцию ядра
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
