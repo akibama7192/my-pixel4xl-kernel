@@ -52,7 +52,11 @@ jobs:
           # Исправление совместимости пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' drivers/ksu/ksu.c || true
           
-          # КРИТИЧЕСКИЙ ШАГ ДЛЯ ОБХОДА ОШИБКИ: Отключаем ломающую сборку архивацию configs.o
+          # ТОЧНАЯ ЗАЧИСТКА ФЛАГА ZERO: Меняем только в сборочных файлах Makefile, не ломая исходный код рута
+          find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
+          sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
+          
+          # Отключаем ломающую сборку архивацию configs.o
           sed -i 's/CONFIG_IKCONFIG=y/CONFIG_IKCONFIG=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_IKCONFIG=n" >> arch/arm64/configs/floral_defconfig
           
@@ -69,8 +73,7 @@ jobs:
           sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
-          sed -i 's/-ftrivial-auto-var-init=zero//g' Makefile || true
-          
+
           # Активируем модули рута и маскировки SUSFS для работы банковских приложений
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
@@ -95,7 +98,7 @@ jobs:
           # Автоматически принимаем все изменения конфигурации
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
-          # Запускаем моментальную финальную сборку ядра
+          # Запускаем финальную компиляцию ядра Image
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -106,6 +109,8 @@ jobs:
             STRIP=$CLANG_BIN/llvm-strip \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
+            LLVM=1 \
+            LLVM_IAS=1 \
             Image \
             -j$(nproc)
 
