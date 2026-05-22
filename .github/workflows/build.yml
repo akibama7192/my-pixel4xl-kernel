@@ -45,12 +45,14 @@ jobs:
           git submodule add "$KSUNEXT_REPO" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
+          # Полностью вырезаем инициализацию zero из конфигурации и Makefile, заменяя на безопасный pattern
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig
+          sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile
+          
           # Отключаем проблемные проверки компилятора
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig
           sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig
-          
-          # Заменяем запрещенный режим инициализации переменных zero на разрешенный pattern
-          sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile
           
           # Принудительно включаем KSU-Next и маскировку SUSFS для банков
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
@@ -74,10 +76,10 @@ jobs:
           # Создаем базовую конфигурацию .config
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Добавляем в флаги компилятора то самое длинное подтверждение, которое просил Clang
-          EXTRA_FLAGS="-mllvm -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang"
+          # Добавляем исправленный флаг с двойным дефисом для LLVM
+          EXTRA_FLAGS="-mllvm --enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang"
           
-          # Запускаем финальную компиляцию ядра
+          # Запускаем компиляцию ядра
           make O=out \
             CC="$CLANG_BIN/clang $EXTRA_FLAGS" \
             LD=$CLANG_BIN/ld.lld \
