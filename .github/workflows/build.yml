@@ -50,7 +50,7 @@ jobs:
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
           
-          # КРИТИЧЕСКИЙ ШАГ: Отключаем сбойный сетевой драйвер Qualcomm, ломавший линковку
+          # Отключаем сбойный сетевой драйвер Qualcomm
           sed -i 's/CONFIG_MSM_DFC=y/CONFIG_MSM_DFC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_MSM_DFC=n" >> arch/arm64/configs/floral_defconfig
           
@@ -79,10 +79,13 @@ jobs:
           
           export PATH=/usr/bin:/bin:$PATH
           
-          # Применяем конфигурацию Kirisakura (floral_defconfig)
+          # Применяем конфигурацию Kirisakura
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Запускаем финальную компиляцию ядра без ломающего флага --target
+          # КРИТИЧЕСКИЙ ШАГ: Автоматически принимаем все изменения конфигурации без вызова опросника
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
+          
+          # Запускаем моментальную финальную сборку ядра
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
