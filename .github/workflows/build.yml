@@ -45,9 +45,9 @@ jobs:
           # Скачиваем стабильную legacy ветку в папку drivers/ksu
           git clone --depth=1 -b legacy "https://$CLEAN_URL" drivers/ksu
           
-          # РЕГИСТРАЦИЯ МОДУЛЯ: Внедряем рут в Makefile и Kconfig драйверов ядра
+          # РЕГИСТРАЦИЯ МОДУЛЯ: исправлен путь к файлу kconfig маленькими буквами
           echo "obj-y += ksu/" >> drivers/Makefile
-          echo 'source "drivers/ksu/Kconfig"' >> drivers/Kconfig
+          echo 'source "drivers/ksu/kconfig"' >> drivers/Kconfig
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
@@ -85,7 +85,7 @@ jobs:
           # Применяем конфигурацию Kirisakura
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Автоматически принимаем все изменения конфигурации без ошибок
+          # Автоматически принимаем все изменения конфигурации
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
           # Запускаем моментальную финальную сборку ядра
