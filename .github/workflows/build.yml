@@ -4,7 +4,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Откатываем ОС сервера на Ubuntu 20.04 для полной совместимости библиотек
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -60,14 +61,13 @@ jobs:
           export SUBARCH=arm64
           
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
-          export PATH=$CLANG_BIN:$PATH
           
-          # Конфигурация ядра с явным указанием компилятора и его целевой архитектуры
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" floral_defconfig
+          # Создаем базовую конфигурацию .config
+          make O=out floral_defconfig
           
-          # Финальная компиляция
+          # Финальная компиляция без забивания системного PATH
           make O=out \
-            CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" \
+            CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
@@ -77,8 +77,6 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
-            HOSTCC=gcc \
-            HOSTLD=/usr/bin/ld \
             -j$(nproc)
 
       - name: Upload Finished Kernel Image
