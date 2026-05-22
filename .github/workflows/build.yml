@@ -20,7 +20,7 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev xz-utils
 
       - name: Download Proton Clang Compiler
         run: |
@@ -52,17 +52,24 @@ jobs:
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
+          # КРИТИЧЕСКИЙ ФИКС WIREGUARD: Распаковываем архив вручную, если автоматика падает
+          if [ -f "net/wireguard.tar.xz" ]; then
+            mkdir -p net/wireguard
+            tar -xf net/wireguard.tar.xz -C net/wireguard --strip-components=1 || true
+            touch net/wireguard/Kconfig || true
+          fi
+          
           # ТОЧНАЯ ЗАЧИСТКА ФЛАГА ZERO: Меняем только в сборочных файлах Makefile
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          # ИСПРАВЛЕНИЕ ОШИБКИ FS/OPEN.C: Включаем обратно IKCONFIG, но гасим тяжелую компиляцию PROC для обхода ошибки памяти
+          # Включаем обратно IKCONFIG, но гасим PROC для обхода ошибки памяти
           sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_IKCONFIG_PROC=n" >> arch/arm64/configs/floral_defconfig
           
-          # ФИКС СБОЯ СБОРКИ ТАБЛИЦ УСТРОЙСТВ: Отключаем принудительное создание appended DTB образов
+          # Отключаем принудительное создание appended DTB образов
           sed -i 's/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n" >> arch/arm64/configs/floral_defconfig
           
@@ -98,7 +105,7 @@ jobs:
           
           export PATH=/usr/bin:/bin:$PATH
           
-          # Возвращаем LLVM=1, чтобы распаковка Wireguard и внутренние скрипты Kconfig отработали без сбоев
+          # Применяем конфигурацию Kirisakura
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd CC=$CLANG_BIN/clang LD=$CLANG_BIN/ld.lld AR=$CLANG_BIN/llvm-ar NM=$CLANG_BIN/llvm-nm OBJCOPY=$CLANG_BIN/llvm-objcopy OBJDUMP=$CLANG_BIN/llvm-objdump STRIP=$CLANG_BIN/llvm-strip LLVM=1 LLVM_IAS=1 floral_defconfig
           
           # Автоматически принимаем все изменения конфигурации
