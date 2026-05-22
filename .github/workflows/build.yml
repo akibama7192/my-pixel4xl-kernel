@@ -42,12 +42,14 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # Скачиваем стабильную legacy ветку в папку drivers/ksu
-          git clone --depth=1 -b legacy "https://$CLEAN_URL" drivers/ksu
+          # ОФИЦИАЛЬНЫЙ СКРИПТ ИНТЕГРАЦИИ: Качаем исходники и запускаем авто-склейку самого разработчика
+          git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
+          cd KernelSU-Next-Source
           
-          # РЕГИСТРАЦИЯ МОДУЛЯ: исправлен путь к файлу kconfig маленькими буквами
-          echo "obj-y += ksu/" >> drivers/Makefile
-          echo 'source "drivers/ksu/kconfig"' >> drivers/Kconfig
+          # Запускаем официальный установщик, он сам правильно пропишет пути в Makefile и Kconfig ядра
+          bash kernel/setup.sh legacy
+          cd ..
+          rm -rf KernelSU-Next-Source
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
