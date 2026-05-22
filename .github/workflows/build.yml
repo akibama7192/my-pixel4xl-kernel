@@ -24,7 +24,6 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          # Ссылка написана через подчеркивания, браузер её не испортит
           RAW_URL="github.com_kdrag0n_proton-clang"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           mkdir -p $GITHUB_WORKSPACE/toolchain
@@ -33,7 +32,6 @@ jobs:
 
       - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          # Ссылка написана через подчеркивания, браузер её не испортит
           RAW_URL="android.googlesource.com_kernel_msm"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           git clone --depth=1 -b android-msm-coral-4.14-android13 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
@@ -41,16 +39,17 @@ jobs:
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          # Ссылка написана через подчеркивания, браузер её не испортит
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
           git submodule add "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Отключаем отладочную трассировку логов в coral_defconfig
+          # КРИТИЧЕСКИЙ ШАГ: Жестко вырезаем SCHED_INFO и SCHEDSTATS, чтобы обойти ошибку в fork.c
           sed -i 's/CONFIG_SCHED_INFO=y/CONFIG_SCHED_INFO=n/g' arch/arm64/configs/coral_defconfig || true
           sed -i 's/CONFIG_SCHEDSTATS=y/CONFIG_SCHEDSTATS=n/g' arch/arm64/configs/coral_defconfig || true
+          echo "CONFIG_SCHED_INFO=n" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_SCHEDSTATS=n" >> arch/arm64/configs/coral_defconfig
           
           # Зачищаем любые возможные конфликты флагов безопасности
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
