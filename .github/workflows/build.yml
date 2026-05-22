@@ -4,8 +4,8 @@ on:
 
 jobs:
   build:
-    # Откатываем ОС сервера на Ubuntu 20.04 для полной совместимости библиотек
-    runs-on: ubuntu-20.04
+    # Возвращаем живой и моментально стартующий сервер
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,12 +63,12 @@ jobs:
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
           # Создаем базовую конфигурацию .config
-          make O=out floral_defconfig
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Финальная компиляция без забивания системного PATH
+          # Финальная компиляция ядра. Линковщик жестко перенаправлен на ld.bfd
           make O=out \
             CC=$CLANG_BIN/clang \
-            LD=$CLANG_BIN/ld.lld \
+            LD=/usr/bin/ld.bfd \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
             OBJCOPY=$CLANG_BIN/llvm-objcopy \
@@ -77,6 +77,8 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             CLANG_TRIPLE=aarch64-linux-gnu- \
+            HOSTCC=gcc \
+            HOSTLD=/usr/bin/ld.bfd \
             -j$(nproc)
 
       - name: Upload Finished Kernel Image
