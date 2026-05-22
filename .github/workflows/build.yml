@@ -32,8 +32,7 @@ jobs:
 
       - name: Clone Google AOSP Pixel 4 XL Kernel Source
         run: |
-          # Убрали протокол из строки, чтобы браузер не ломал текст
-          RAW_URL="android.googlesource.com / kernel / msm.git"
+          RAW_URL="://googlesource.com / kernel / msm.git"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 -b android-msm-coral-4.14-android13 "https://${CLEAN_URL}" $GITHUB_WORKSPACE/kernel
 
@@ -46,6 +45,10 @@ jobs:
           # Интеграция подмодуля
           git submodule add "https://${CLEAN_URL}" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
+          
+          # Отключаем проблемную трассировку планировщика, вызвавшую ошибку
+          echo "CONFIG_SCHED_INFO=n" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_SCHEDSTATS=n" >> arch/arm64/configs/coral_defconfig
           
           # Зачищаем любые возможные конфликты флагов безопасности
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
