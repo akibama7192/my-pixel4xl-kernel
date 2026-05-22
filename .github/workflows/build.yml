@@ -42,7 +42,8 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          git submodule add "https://$CLEAN_URL" KernelSU
+          # КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Скачиваем стабильную legacy ветку для ядер 4.14
+          git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
           # Физически стираем ломающую строчку ошибки из кода планировщика Google
@@ -82,7 +83,7 @@ jobs:
           # Применяем официальный заводской coral_defconfig
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
-          # КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Дописана цель Image.gz, чтобы собиралось только само ядро без лишних DTB
+          # Компилируем строго образ ядра Image.gz
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
