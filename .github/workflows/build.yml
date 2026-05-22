@@ -48,34 +48,34 @@ jobs:
           # Прописываем интеграцию в главный Makefile ядра
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Включаем KSU и маскировку SUSFS в конфигурацию
+          # Включаем KSU-Next и маскировку SUSFS в конфигурацию
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
 
       - name: Compile Kernel Image
+        env:
+          ARCH: arm64
+          SUBARCH: arm64
+          CLANG_TRIPLE: aarch64-linux-gnu-
+          CROSS_COMPILE: aarch64-linux-gnu-
+          CROSS_COMPILE_ARM32: arm-linux-gnueabi-
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          export ARCH=arm64
-          export SUBARCH=arm64
-          
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          # Создаем базовую конфигурацию .config через системный линковщик
+          # Создаем базовую конфигурацию .config через системный линковщик хоста
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Финальная компиляция ядра. Для самого ядра возвращаем родной ld.lld от Proton Clang
+          # Запускаем финальную компиляцию ядра, явно передавая компилятор с таргетом архитектуры
           make O=out \
-            CC=$CLANG_BIN/clang \
+            CC="$CLANG_BIN/clang --target=aarch64-linux-gnu" \
             LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
             OBJCOPY=$CLANG_BIN/llvm-objcopy \
             OBJDUMP=$CLANG_BIN/llvm-objdump \
             STRIP=$CLANG_BIN/llvm-strip \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
             HOSTCC=gcc \
             HOSTLD=/usr/bin/ld.bfd \
             -j$(nproc)
