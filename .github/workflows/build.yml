@@ -6,18 +6,47 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build Kernel
-        uses: Xiaoxindada/android-kernel-build-action@main
+      - name: Maximize Build Space
+        uses: easimon/maximize-build-space@master
         with:
-          kernel-url: https://github.com
-          kernel-branch: android-13
-          config: floral_defconfig
-          arch: arm64
-          android-version: 13
-          ksu: true
-          ksu-other: true
-          ksu-url: https://github.com
-          ksu-version: main
+          root-reserve-mb: 5120
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+
+      - name: Install Build Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.1-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev libtinfo5
+
+      - name: Download Google Clang Compiler
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/toolchain
+          cd $GITHUB_WORKSPACE/toolchain
+          git clone --depth=1 https://googlesource.com clang
+
+      - name: Clone Kirisakura Kernel Source
+        run: |
+          git clone --depth=1 -b android-13 https://github.com $GITHUB_WORKSPACE/kernel
+
+      - name: Integrate ReSukiSU Source Code
+        run: |
+          cd $GITHUB_WORKSPACE/kernel
+          curl -LSs https://githubusercontent.com | bash -s main
+
+      - name: Compile Kernel Image
+        run: |
+          cd $GITHUB_WORKSPACE/kernel
+          export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make O=out floral_defconfig
+          make O=out -j$(nproc)
+
+      - name: Upload Finished Kernel Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kirisakura-ReSukiSU-Kernel
+          path: kernel/out/arch/arm64/boot/Image.gz
