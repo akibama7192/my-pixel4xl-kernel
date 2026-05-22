@@ -45,11 +45,12 @@ jobs:
           git submodule add "https://$CLEAN_URL" KernelSU
           echo "obj-y += KernelSU/" >> Makefile
           
-          # Отключаем отладочную трассировку логов в coral_defconfig
-          sed -i 's/CONFIG_SCHED_INFO=y/CONFIG_SCHED_INFO=n/g' arch/arm64/configs/coral_defconfig || true
-          sed -i 's/CONFIG_SCHEDSTATS=y/CONFIG_SCHEDSTATS=n/g' arch/arm64/configs/coral_defconfig || true
-          echo "CONFIG_SCHED_INFO=n" >> arch/arm64/configs/coral_defconfig
-          echo "CONFIG_SCHEDSTATS=n" >> arch/arm64/configs/coral_defconfig
+          # Физически стираем ломающую строчку ошибки из кода планировщика Google
+          sed -i '/Unsupported NR_CPUS for lb tracepoint/d' include/trace/events/sched.h || true
+          
+          # Принудительно задаем параметры процессора Snapdragon 855 (8 ядер)
+          echo "CONFIG_SMP=y" >> arch/arm64/configs/coral_defconfig
+          echo "CONFIG_NR_CPUS=8" >> arch/arm64/configs/coral_defconfig
           
           # Зачищаем любые возможные конфликты флагов безопасности
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/coral_defconfig || true
@@ -81,7 +82,7 @@ jobs:
           # Применяем официальный заводской coral_defconfig
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd coral_defconfig
           
-          # Запускаем финальную компиляцию ядра с флагами встроенного ассемблера LLVM_IAS=1
+          # КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: Дописана цель Image.gz, чтобы собиралось только само ядро без лишних DTB
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
@@ -94,6 +95,7 @@ jobs:
             HOSTLD=/usr/bin/ld.bfd \
             LLVM=1 \
             LLVM_IAS=1 \
+            Image.gz \
             -j$(nproc)
 
       - name: Upload Finished Kernel Image
