@@ -42,13 +42,11 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # ОФИЦИАЛЬНЫЙ СКРИПТ ИНТЕГРАЦИИ: Качаем исходники и запускаем авто-склейку самого разработчика
+          # Скачиваем исходники KSU-Next рядом
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
-          cd KernelSU-Next-Source
           
-          # Запускаем официальный установщик, он сам правильно пропишет пути в Makefile и Kconfig ядра
-          bash kernel/setup.sh legacy
-          cd ..
+          # ИСПРАВЛЕНИЕ: Запускаем установщик прямо из корня ядра, указав точный путь к скрипту
+          bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
