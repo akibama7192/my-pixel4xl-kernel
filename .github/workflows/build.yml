@@ -42,12 +42,19 @@ jobs:
           RAW_URL="github.com_rifsxd_KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
-          # Скачиваем исходники KSU-Next рядом
+          # Скачиваем исходники KSU-Next
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
           
-          # ИСПРАВЛЕНИЕ: Запускаем установщик прямо из корня ядра, указав точный путь к скрипту
+          # Запускаем установщик из корня ядра
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
+          
+          # Исправление совместимости пространства имен в ksu.c под Android 13
+          sed -i 's/\&init_user_ns/current_user_ns()/g' drivers/ksu/ksu.c || true
+          
+          # КРИТИЧЕСКИЙ ШАГ ДЛЯ ОБХОДА ОШИБКИ: Отключаем ломающую сборку архивацию configs.o
+          sed -i 's/CONFIG_IKCONFIG=y/CONFIG_IKCONFIG=n/g' arch/arm64/configs/floral_defconfig || true
+          echo "CONFIG_IKCONFIG=n" >> arch/arm64/configs/floral_defconfig
           
           # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
