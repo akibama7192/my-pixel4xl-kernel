@@ -45,10 +45,10 @@ jobs:
           # Скачиваем исходники KSU-Next во временную папку
           git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
           
-          # Исправляем ошибку типов данных пространства имен в ksu.c под Android 13
+          # Исправление совместимости пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
           
-          # Запускаем официальный установщик разработчиков из корня ядра
+          # Запускаем установщик разработчиков из корня ядра
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
@@ -56,7 +56,7 @@ jobs:
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          # ИСПРАВЛЕНИЕ ОШИБКИ FS/OPEN.C: Включаем обратно IKCONFIG, но гасим тяжелую компиляцию PROC для обхода ошибки памяти
+          # Включаем IKCONFIG обратно, но гасим PROC для обхода ошибки памяти
           sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
@@ -100,7 +100,7 @@ jobs:
           # Автоматически принимаем все изменения конфигурации
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd olddefconfig
           
-          # Запускаем финальную компиляцию ядра Image
+          # КРИТИЧЕСКИЙ ФИКС: Добавлена явная цель Image, чтобы собрать только ядро без сбойных DTB таблиц
           make O=out \
             CC=$CLANG_BIN/clang \
             LD=$CLANG_BIN/ld.lld \
