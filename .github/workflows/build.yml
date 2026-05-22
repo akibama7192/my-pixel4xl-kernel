@@ -46,12 +46,27 @@ jobs:
       - name: Compile Kernel Image
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
-          # Добавлен параметр LD=ld для обхода ошибки совместимости библиотек Ubuntu 24.04
-          make O=out floral_defconfig
-          make O=out CC=clang LD=ld CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 -j$(nproc)
+          
+          # Сначала собираем конфигурацию, принудительно используя системный линковщик Ubuntu
+          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld floral_defconfig
+          
+          # Запускаем сборку самого ядра с использованием Proton Clang
+          CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
+          make O=out \
+            CC=$CLANG_BIN/clang \
+            LD=$CLANG_BIN/ld.lld \
+            AR=$CLANG_BIN/llvm-ar \
+            NM=$CLANG_BIN/llvm-nm \
+            OBJCOPY=$CLANG_BIN/llvm-objcopy \
+            OBJDUMP=$CLANG_BIN/llvm-objdump \
+            STRIP=$CLANG_BIN/llvm-strip \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            HOSTCC=gcc \
+            HOSTLD=/usr/bin/ld \
+            -j$(nproc)
 
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
