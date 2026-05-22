@@ -42,14 +42,13 @@ jobs:
           RAW_URL="https: / / github.com / rifsxd / KernelSU-Next.git"
           KSUNEXT_REPO=$(echo "$RAW_URL" | tr -d ' ')
           
-          # Легальное внедрение исходников KSU-Next в ядро 4.14
+          # Интеграция подмодуля без принудительного переключения веток
           git submodule add "$KSUNEXT_REPO" KernelSU
-          cd KernelSU && git checkout next && cd ..
           
-          # Накатываем интеграцию в главный Makefile ядра вручную
-          echo "obj-y += KernelSU/" >> drivers/Makefile
+          # Прописываем интеграцию в главный Makefile ядра (в корневой папке)
+          echo "obj-y += KernelSU/" >> Makefile
           
-          # Добавляем принудительную активацию KSU и SUSFS в конфигурацию
+          # Принудительно включаем KSU и маскировку в конфигурационный файл
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
