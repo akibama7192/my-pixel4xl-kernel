@@ -38,9 +38,12 @@ jobs:
 
       - name: Integrate ReSukiSU Source Code
         run: |
-          RAW_URL="https: / / ://githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
-          SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           cd $GITHUB_WORKSPACE/kernel
+          # Ссылка разбита на части, чтобы обойти баг автозамены браузера
+          PART1="https: / / raw.githubusercontent.com"
+          PART2="https: / /ReSukiSU / ReSukiSU / main / kernel / setup.sh"
+          RAW_URL="${PART1} / ${PART2}"
+          SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           curl -LSs "$SETUP_URL" | bash -s main
 
       - name: Compile Kernel Image
@@ -49,10 +52,8 @@ jobs:
           export ARCH=arm64
           export SUBARCH=arm64
           
-          # Сначала собираем конфигурацию, принудительно используя системный линковщик Ubuntu
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld floral_defconfig
           
-          # Запускаем сборку самого ядра с использованием Proton Clang
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           make O=out \
             CC=$CLANG_BIN/clang \
