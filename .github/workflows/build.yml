@@ -1,0 +1,29 @@
+name: Build Pixel 4 XL ReSukiSU Kernel
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Kernel
+        uses: ftsm/android-kernel-build-action@main # шаблон популярного компилятора
+        with:
+          kernel-url: https://github.com/freak07/FLORAL # Ссылка на исходники Kirisakura для Pixel 4 XL
+          kernel-branch: android-13 # ветка вашей операционной системы
+          config: floral_defconfig # стандартный конфигурационный файл для вашего процессора
+          arch: arm64
+          android-version: 13
+          
+          # Интеграция правильного рута со скрытием
+          ksu: true
+          ksu-other: true
+          ksu-url: https://github.com # Подтягиваем код ReSukiSU вместо оригинального KSU
+          ksu-version: main
+          
+          # Внедряем патч глубокого скрытия файловой системы
+          susfs: true 
+          susfs-url: https://github.com
