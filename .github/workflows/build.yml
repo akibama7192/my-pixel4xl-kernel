@@ -38,8 +38,7 @@ jobs:
 
       - name: Integrate ReSukiSU Source Code
         run: |
-          # Исправленная ссылка без лишних символов
-          RAW_URL="https: / / raw.githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
+          RAW_URL="https: / / ://githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
           SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           cd $GITHUB_WORKSPACE/kernel
           curl -LSs "$SETUP_URL" | bash -s main
@@ -50,8 +49,9 @@ jobs:
           export PATH=$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH
           export ARCH=arm64
           export SUBARCH=arm64
+          # Добавлен параметр LD=ld для обхода ошибки совместимости библиотек Ubuntu 24.04
           make O=out floral_defconfig
-          make O=out CC=clang CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 -j$(nproc)
+          make O=out CC=clang LD=ld CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 -j$(nproc)
 
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
