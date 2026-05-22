@@ -4,7 +4,6 @@ on:
 
 jobs:
   build:
-    # Возвращаем живой и моментально стартующий сервер
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -62,13 +61,13 @@ jobs:
           
           CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          # Создаем базовую конфигурацию .config
+          # Создаем базовую конфигурацию .config через системный линковщик
           make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd floral_defconfig
           
-          # Финальная компиляция ядра. Линковщик жестко перенаправлен на ld.bfd
+          # Финальная компиляция ядра. Для самого ядра возвращаем родной ld.lld от Proton Clang
           make O=out \
             CC=$CLANG_BIN/clang \
-            LD=/usr/bin/ld.bfd \
+            LD=$CLANG_BIN/ld.lld \
             AR=$CLANG_BIN/llvm-ar \
             NM=$CLANG_BIN/llvm-nm \
             OBJCOPY=$CLANG_BIN/llvm-objcopy \
