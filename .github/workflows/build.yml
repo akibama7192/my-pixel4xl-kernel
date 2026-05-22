@@ -24,8 +24,7 @@ jobs:
 
       - name: Download Proton Clang Compiler
         run: |
-          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
-          RAW_URL="https://github.com/kdrag0n/proton-clang.git"
+          RAW_URL="https: / / github.com / kdrag0n / proton-clang.git"
           CLANG_REPO=$(echo "$RAW_URL" | tr -d ' ')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
@@ -33,15 +32,14 @@ jobs:
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
-          RAW_URL="https://github.com/freak07/FLORAL.git"
+          RAW_URL="https: / / github.com / freak07 / FLORAL.git"
           KERNEL_REPO=$(echo "$RAW_URL" | tr -d ' ')
-          git clone --depth=1 -b android-13 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
+          # Убрали привязку к ветке android-13, качаем основную ветку
+          git clone --depth=1 "$KERNEL_REPO" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate ReSukiSU Source Code
         run: |
-          # Ниже указана ссылка с пробелами, робот сам уберет пробелы перед скачиванием
-          RAW_URL="https://githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh"
+          RAW_URL="https: / / ://githubusercontent.com / ReSukiSU / ReSukiSU / main / kernel / setup.sh"
           SETUP_URL=$(echo "$RAW_URL" | tr -d ' ')
           cd $GITHUB_WORKSPACE/kernel
           curl -LSs "$SETUP_URL" | bash -s main
