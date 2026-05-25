@@ -26,20 +26,20 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          RAW_URL="https:// github.com / kdrag0n / proton-clang"
+          RAW_URL="https://github.com/kdrag0n/proton-clang"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          RAW_URL="https:// github.com / freak07 / FLORAL"
+          RAW_URL="https://github.com/freak07/FLORAL"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          RAW_URL="https:// github.com / rifsxd / KernelSU-Next"
+          RAW_URL="https://github.com/rifsxd/KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 -b legacy "$CLEAN_URL" KernelSU-Next-Source
           
