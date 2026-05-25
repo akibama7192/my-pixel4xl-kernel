@@ -1,4 +1,4 @@
-name: Build Pixel 4 XL KSU-Next Kernel
+name: Build Pixel 4 XL KSU-Next + SUSFS Kernel
 on:
   workflow_dispatch:
 
@@ -36,49 +36,67 @@ jobs:
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
-      - name: Integrate KernelSU-Next Source Code
+      - name: Integrate KernelSU-Next & SUSFS
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          RAW_URL="https://github.com/rifsxd/KernelSU-Next"
-          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
-          git clone --depth=1 -b legacy "$CLEAN_URL" KernelSU-Next-Source
           
+          # 1. Скачивание KernelSU-Next (ветка legacy для ядер старше 5.4)
+          RAW_URL_KSU="https://github.com/rifsxd/KernelSU-Next"
+          CLEAN_URL_KSU=$(echo "$RAW_URL_KSU" | tr -d ' ')
+          git clone --depth=1 -b legacy "$CLEAN_URL_KSU" KernelSU-Next-Source
+          
+          # Исправление совместимости пространства имен для старых ядер
           sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next-Source/kernel/ksu.c || true
           
+          # Установка KernelSU-Next через встроенный скрипт
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
+          # 2. Скачивание и интеграция SUSFS патчей для ядра 4.14 (Pixel 4 XL)
+          RAW_URL_SUSFS="https://gitlab.com/simonpunk/susfs4ksu.git"
+          CLEAN_URL_SUSFS=$(echo "$RAW_URL_SUSFS" | tr -d ' ')
+          git clone --depth=1 "$CLEAN_URL_SUSFS" -b kernel-4.14 susfs_src
+          
+          # Копирование необходимых файлов SUSFS в дерево ядра
+          cp susfs_src/KernelSU/kgki/* kernel/ || true
+          cp susfs_src/fs/susfs.c fs/
+          cp susfs_src/include/linux/susfs.h include/linux/
+          
+          # Применение официального патча для ядра 4.14
+          patch -p1 < susfs_src/4.14/50_add_susfs_in_kernel-4.14.patch || true
+          rm -rf susfs_src
+
+          # 3. Настройка Wireguard (если присутствует в репозитории)
           if [ -f "net/wireguard.tar.xz" ]; then
             mkdir -p net/wireguard
             tar -xf net/wireguard.tar.xz -C net/wireguard --strip-components=1 || true
             touch net/wireguard/Kconfig || true
           fi
           
+          # Фикс несовместимых флагов компиляции Proton Clang
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
-          sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
-          echo "CONFIG_IKCONFIG_PROC=n" >> arch/arm64/configs/floral_defconfig
+          # 4. Редактирование конфигурации floral_defconfig
+          DEFCONFIG="arch/arm64/configs/floral_defconfig"
           
-          sed -i 's/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n" >> arch/arm64/configs/floral_defconfig
+          sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' $DEFCONFIG || true
           
-          sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
+          sed -i 's/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_MSM_DFC=y/CONFIG_MSM_DFC=n/g' $DEFCONFIG || true
           
-          sed -i 's/CONFIG_MSM_DFC=y/CONFIG_MSM_DFC=n/g' arch/arm64/configs/floral_defconfig || true
-          echo "CONFIG_MSM_DFC=n" >> arch/arm64/configs/floral_defconfig
-          
-          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
-          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig || true
-          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
-          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
+          sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' $DEFCONFIG || true
+          sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' $DEFCONFIG || true
 
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
-          echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
-          echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
+          # Включение флагов KernelSU-Next и SUSFS
+          echo "CONFIG_KSU=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_NEXT=y" >> $DEFCONFIG
+          echo "CONFIG_KSU_SUSFS=y" >> $DEFCONFIG
+          echo "CONFIG_SUSFS=y" >> $DEFCONFIG
 
       - name: Compile Kernel Image
         env:
@@ -97,5 +115,5 @@ jobs:
       - name: Upload Finished Kernel Image
         uses: actions/upload-artifact@v4
         with:
-          name: Kirisakura-KSU-Next-Kernel
+          name: Kirisakura-KSU-Next-SUSFS-Kernel
           path: kernel/out/arch/arm64/boot/Image
