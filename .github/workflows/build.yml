@@ -4,7 +4,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Использование ubuntu-20.04 критично для совместимости со старыми Clang тулчейнами
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,18 +27,27 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          git clone --depth=1 "https://github.com/kdrag0n/proton-clang" clang
+          
+          # Очищаем пробелы перед клонированием
+          RAW_URL="https://github.com/kdrag0n/proton-clang"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
+          git clone --depth=1 "$CLEAN_URL" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          git clone --depth=1 "https://github.com/freak07/FLORAL" $GITHUB_WORKSPACE/kernel
+          # Очищаем пробелы перед клонированием
+          RAW_URL="https://github.com/freak07/FLORAL"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
+          git clone --depth=1 "$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
-          # Скачиваем исходники KSU-Next во временную папку
-          git clone --depth=1 -b legacy "https://github.com/rifsxd/KernelSU-Next" KernelSU-Next-Source
+          # Очищаем пробелы перед клонированием исходников KSU-Next
+          RAW_URL="https://github.com/rifsxd/KernelSU-Next"
+          CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
+          git clone --depth=1 -b legacy "$CLEAN_URL" KernelSU-Next-Source
           
           # Исправление совместимости пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
@@ -93,17 +103,18 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
-          # Добавляем бинарники тулчейна Proton в начало PATH
-          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
+          # Явно добавляем бинарники Proton Clang, но системные /usr/bin оставляем в приоритете для хост-инструментов
+          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:/usr/bin:/bin:$PATH"
           
-          # Базовые аргументы сборки для старых ядер MSM-4.14
+          # Полный набор аргументов, форсирующий использование системного линковщика для утилит хоста
           MAKE_ARGS="O=out \
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             HOSTCC=gcc \
-            HOSTLD=/usr/bin/ld.bfd"
+            HOSTLD=/usr/bin/ld \
+            LD=ld.lld"
           
           # Применяем конфигурацию Kirisakura
           make $MAKE_ARGS floral_defconfig
