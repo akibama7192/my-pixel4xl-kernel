@@ -40,29 +40,29 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
-          # 1. Скачивание KernelSU-Next (ветка legacy)
+          # 1. Скачивание и правильная интеграция KernelSU-Next (ветка legacy)
           RAW_URL_KSU="https://github.com/rifsxd/KernelSU-Next"
           CLEAN_URL_KSU=$(echo "$RAW_URL_KSU" | tr -d ' ')
-          git clone --depth=1 -b legacy "$CLEAN_URL_KSU" KernelSU-Next-Source
+          git clone --depth=1 -b legacy "$CLEAN_URL_KSU" KernelSU-Next
           
-          # Фикс пространства имен для ветки legacy (правильный путь к файлу)
-          sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next-Source/kernel/drivers/ksu.c || true
+          # Запуск официального установщика для ветки legacy
+          bash KernelSU-Next/kernel/setup.sh legacy
           
-          # Установка KernelSU-Next через встроенный скрипт
-          bash KernelSU-Next-Source/kernel/setup.sh legacy
-          rm -rf KernelSU-Next-Source
+          # Фикс пространства имен применяется ПОСЛЕ создания символических ссылок установщиком
+          sed -i "s/\&init_user_ns/current_user_ns()/g" drivers/kernelsu/ksu.c || true
+          rm -rf KernelSU-Next
           
-          # 2. Скачивание и интеграция SUSFS патчей для ядра 4.14 (Pixel 4 XL)
+          # 2. Скачивание и точная интеграция файлов SUSFS для ветки kernel-4.14
           RAW_URL_SUSFS="https://gitlab.com/simonpunk/susfs4ksu.git"
           CLEAN_URL_SUSFS=$(echo "$RAW_URL_SUSFS" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL_SUSFS" -b kernel-4.14 susfs_src
           
-          # Копирование файлов SUSFS в соответствии со структурой ветки kernel-4.14
-          cp susfs_src/KernelSU/* drivers/kernelsu/ || true
+          # Копирование структуры файлов SUSFS под ядро 4.14
+          cp susfs_src/kernel/* drivers/kernelsu/ || true
           cp susfs_src/fs/susfs.c fs/
           cp susfs_src/include/linux/susfs.h include/linux/
           
-          # Применение официального патча для ядра 4.14
+          # Применение патча модификации системных вызовов ядра 4.14
           patch -p1 < susfs_src/4.14/50_add_susfs_in_kernel-4.14.patch || true
           rm -rf susfs_src
 
@@ -92,7 +92,7 @@ jobs:
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' $DEFCONFIG || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' $DEFCONFIG || true
 
-          # Включение флагов KernelSU-Next и SUSFS
+          # Включение флагов KernelSU-Next и SUSFS в конфигурационный файл
           echo "CONFIG_KSU=y" >> $DEFCONFIG
           echo "CONFIG_KSU_NEXT=y" >> $DEFCONFIG
           echo "CONFIG_KSU_SUSFS=y" >> $DEFCONFIG
