@@ -26,18 +26,18 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          git clone --depth=1 "https://github.com" clang
+          git clone --depth=1 "https://github.com/kdrag0n/proton-clang" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          git clone --depth=1 "https://github.com" $GITHUB_WORKSPACE/kernel
+          git clone --depth=1 "https://github.com/freak07/FLORAL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
           # Скачиваем исходники KSU-Next во временную папку
-          git clone --depth=1 -b legacy "https://github.com" KernelSU-Next-Source
+          git clone --depth=1 -b legacy "https://github.com/rifsxd/KernelSU-Next" KernelSU-Next-Source
           
           # Исправление совместимости пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
@@ -115,7 +115,7 @@ jobs:
           make $MAKE_ARGS Image -j$(nproc)
 
       - name: Upload Finished Kernel Image
-        uses: actions/artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: Kirisakura-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image
