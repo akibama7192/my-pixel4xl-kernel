@@ -4,7 +4,6 @@ on:
 
 jobs:
   build:
-    # Использование ubuntu-20.04 критично для совместимости со старыми Clang тулчейнами
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
@@ -27,71 +26,56 @@ jobs:
         run: |
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          
-          # Очищаем пробелы перед клонированием
-          RAW_URL="https://github.com/kdrag0n/proton-clang"
+          RAW_URL="https:// github.com / kdrag0n / proton-clang"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          # Очищаем пробелы перед клонированием
-          RAW_URL="https://github.com/freak07/FLORAL"
+          RAW_URL="https:// github.com / freak07 / FLORAL"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          
-          # Очищаем пробелы перед клонированием исходников KSU-Next
-          RAW_URL="https://github.com/rifsxd/KernelSU-Next"
+          RAW_URL="https:// github.com / rifsxd / KernelSU-Next"
           CLEAN_URL=$(echo "$RAW_URL" | tr -d ' ')
           git clone --depth=1 -b legacy "$CLEAN_URL" KernelSU-Next-Source
           
-          # Исправление совместимости пространства имен в ksu.c под Android 13
-          sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
+          sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next-Source/kernel/ksu.c || true
           
-          # Запускаем установщик разработчиков из корня ядра
           bash KernelSU-Next-Source/kernel/setup.sh legacy
           rm -rf KernelSU-Next-Source
           
-          # КРИТИЧЕСКИЙ ФИКС WIREGUARD: Распаковываем архив вручную, если автоматика падает
           if [ -f "net/wireguard.tar.xz" ]; then
             mkdir -p net/wireguard
             tar -xf net/wireguard.tar.xz -C net/wireguard --strip-components=1 || true
             touch net/wireguard/Kconfig || true
           fi
           
-          # ТОЧНАЯ ЗАЧИСТКА ФЛАГА ZERO: Меняем только в сборочных файлах Makefile
           find . -name "Makefile*" -exec sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' {} + || true
           sed -i 's/-ftrivial-auto-var-init=zero/-ftrivial-auto-var-init=pattern/g' Makefile || true
           
-          # Включаем обратно IKCONFIG, но гасим PROC для обхода ошибки памяти
           sed -i 's/CONFIG_IKCONFIG=n/CONFIG_IKCONFIG=y/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_IKCONFIG_PROC=y/CONFIG_IKCONFIG_PROC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_IKCONFIG=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_IKCONFIG_PROC=n" >> arch/arm64/configs/floral_defconfig
           
-          # Отключаем принудительное создание appended DTB образов
           sed -i 's/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=y/CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE=n" >> arch/arm64/configs/floral_defconfig
           
-          # Отключаем ломающийся 32-битный подмодуль vdso32
           sed -i 's/CONFIG_COMPAT_VDSO=y/CONFIG_COMPAT_VDSO=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_COMPAT_VDSO=n" >> arch/arm64/configs/floral_defconfig
           
-          # Отключаем сбойный сетевой драйвер Qualcomm
           sed -i 's/CONFIG_MSM_DFC=y/CONFIG_MSM_DFC=n/g' arch/arm64/configs/floral_defconfig || true
           echo "CONFIG_MSM_DFC=n" >> arch/arm64/configs/floral_defconfig
           
-          # Зачищаем остальные конфликты безопасности
           sed -i 's/CONFIG_CC_STACKPROTECTOR_STRONG=y/# CONFIG_CC_STACKPROTECTOR_STRONG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_LTO_CLANG=y/# CONFIG_LTO_CLANG is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO=y/# CONFIG_CC_HAS_AUTO_VAR_INIT_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
           sed -i 's/CONFIG_INIT_STACK_ALL_ZERO=y/# CONFIG_INIT_STACK_ALL_ZERO is not set/g' arch/arm64/configs/floral_defconfig || true
 
-          # Активируем модули рута и маскировки SUSFS для работы банковских приложений
           echo "CONFIG_KSU=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_NEXT=y" >> arch/arm64/configs/floral_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> arch/arm64/configs/floral_defconfig
@@ -102,27 +86,12 @@ jobs:
           SUBARCH: arm64
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          
-          # Явно добавляем бинарники Proton Clang, но системные /usr/bin оставляем в приоритете для хост-инструментов
           export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:/usr/bin:/bin:$PATH"
           
-          # Полный набор аргументов, форсирующий использование системного линковщика для утилит хоста
-          MAKE_ARGS="O=out \
-            CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            HOSTCC=gcc \
-            HOSTLD=/usr/bin/ld \
-            LD=ld.lld"
+          MAKE_ARGS="O=out CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- HOSTCC=gcc HOSTLD=/usr/bin/ld LD=ld.lld"
           
-          # Применяем конфигурацию Kirisakura
           make $MAKE_ARGS floral_defconfig
-          
-          # Автоматически принимаем все изменения конфигурации
           make $MAKE_ARGS olddefconfig
-          
-          # Запускаем компиляцию строго самого файла ядра Image
           make $MAKE_ARGS Image -j$(nproc)
 
       - name: Upload Finished Kernel Image
