@@ -20,30 +20,24 @@ jobs:
       - name: Install Build Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev xz-utils
+          sudo apt-get install -y bc bison build-essential ccache flex g++-multilib gcc-multilib git gnupg gperf lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev xz-utils libelf-dev
 
       - name: Download Proton Clang Compiler
         run: |
-          RAW_URL="github.com_kdrag0n_proton-clang"
-          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           mkdir -p $GITHUB_WORKSPACE/toolchain
           cd $GITHUB_WORKSPACE/toolchain
-          git clone --depth=1 "https://$CLEAN_URL" clang
+          git clone --depth=1 "https://github.com" clang
 
       - name: Clone Kirisakura Kernel Source
         run: |
-          RAW_URL="github.com_freak07_FLORAL"
-          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
-          git clone --depth=1 "https://$CLEAN_URL" $GITHUB_WORKSPACE/kernel
+          git clone --depth=1 "https://github.com" $GITHUB_WORKSPACE/kernel
 
       - name: Integrate KernelSU-Next Source Code
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          RAW_URL="github.com_rifsxd_KernelSU-Next"
-          CLEAN_URL=$(echo "$RAW_URL" | tr '_' '/')
           
           # Скачиваем исходники KSU-Next во временную папку
-          git clone --depth=1 -b legacy "https://$CLEAN_URL" KernelSU-Next-Source
+          git clone --depth=1 -b legacy "https://github.com" KernelSU-Next-Source
           
           # Исправление совместимости пространства имен в ksu.c под Android 13
           sed -i 's/\&init_user_ns/current_user_ns()/g' KernelSU-Next-Source/kernel/ksu.c || true
@@ -96,39 +90,32 @@ jobs:
         env:
           ARCH: arm64
           SUBARCH: arm64
-          CLANG_TRIPLE: aarch64-linux-gnu-
-          CROSS_COMPILE: aarch64-linux-gnu-
-          CROSS_COMPILE_ARM32: arm-linux-gnueabi-
         run: |
           cd $GITHUB_WORKSPACE/kernel
-          CLANG_BIN=$GITHUB_WORKSPACE/toolchain/clang/bin
           
-          export PATH=/usr/bin:/bin:$PATH
+          # Добавляем бинарники тулчейна Proton в начало PATH
+          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
+          
+          # Базовые аргументы сборки для старых ядер MSM-4.14
+          MAKE_ARGS="O=out \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            HOSTCC=gcc \
+            HOSTLD=/usr/bin/ld.bfd"
           
           # Применяем конфигурацию Kirisakura
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd CC=$CLANG_BIN/clang LD=$CLANG_BIN/ld.lld AR=$CLANG_BIN/llvm-ar NM=$CLANG_BIN/llvm-nm OBJCOPY=$CLANG_BIN/llvm-objcopy OBJDUMP=$CLANG_BIN/llvm-objdump STRIP=$CLANG_BIN/llvm-strip LLVM=1 LLVM_IAS=1 floral_defconfig
+          make $MAKE_ARGS floral_defconfig
           
           # Автоматически принимаем все изменения конфигурации
-          make O=out HOSTCC=gcc HOSTLD=/usr/bin/ld.bfd CC=$CLANG_BIN/clang LD=$CLANG_BIN/ld.lld AR=$CLANG_BIN/llvm-ar NM=$CLANG_BIN/llvm-nm OBJCOPY=$CLANG_BIN/llvm-objcopy OBJDUMP=$CLANG_BIN/llvm-objdump STRIP=$CLANG_BIN/llvm-strip LLVM=1 LLVM_IAS=1 olddefconfig
+          make $MAKE_ARGS olddefconfig
           
           # Запускаем компиляцию строго самого файла ядра Image
-          make O=out \
-            CC=$CLANG_BIN/clang \
-            LD=$CLANG_BIN/ld.lld \
-            AR=$CLANG_BIN/llvm-ar \
-            NM=$CLANG_BIN/llvm-nm \
-            OBJCOPY=$CLANG_BIN/llvm-objcopy \
-            OBJDUMP=$CLANG_BIN/llvm-objdump \
-            STRIP=$CLANG_BIN/llvm-strip \
-            HOSTCC=gcc \
-            HOSTLD=/usr/bin/ld.bfd \
-            LLVM=1 \
-            LLVM_IAS=1 \
-            Image \
-            -j$(nproc)
+          make $MAKE_ARGS Image -j$(nproc)
 
       - name: Upload Finished Kernel Image
-        uses: actions/upload-artifact@v4
+        uses: actions/artifact@v4
         with:
           name: Kirisakura-KSU-Next-Kernel
           path: kernel/out/arch/arm64/boot/Image
