@@ -40,13 +40,13 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
-          # 1. Скачивание KernelSU-Next (ветка legacy для ядер старше 5.4)
+          # 1. Скачивание KernelSU-Next (ветка legacy)
           RAW_URL_KSU="https://github.com/rifsxd/KernelSU-Next"
           CLEAN_URL_KSU=$(echo "$RAW_URL_KSU" | tr -d ' ')
           git clone --depth=1 -b legacy "$CLEAN_URL_KSU" KernelSU-Next-Source
           
-          # Исправление совместимости пространства имен для старых ядер
-          sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next-Source/kernel/ksu.c || true
+          # Фикс пространства имен для ветки legacy (правильный путь к файлу)
+          sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next-Source/kernel/drivers/ksu.c || true
           
           # Установка KernelSU-Next через встроенный скрипт
           bash KernelSU-Next-Source/kernel/setup.sh legacy
@@ -57,8 +57,8 @@ jobs:
           CLEAN_URL_SUSFS=$(echo "$RAW_URL_SUSFS" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL_SUSFS" -b kernel-4.14 susfs_src
           
-          # Копирование необходимых файлов SUSFS в дерево ядра
-          cp susfs_src/KernelSU/kgki/* kernel/ || true
+          # Копирование файлов SUSFS в соответствии со структурой ветки kernel-4.14
+          cp susfs_src/KernelSU/* drivers/kernelsu/ || true
           cp susfs_src/fs/susfs.c fs/
           cp susfs_src/include/linux/susfs.h include/linux/
           
