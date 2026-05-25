@@ -40,30 +40,34 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/kernel
           
-          # 1. Скачивание и правильная интеграция KernelSU-Next (ветка legacy)
+          # 1. Скачивание и интеграция KernelSU-Next (ветка legacy)
           RAW_URL_KSU="https://github.com/rifsxd/KernelSU-Next"
           CLEAN_URL_KSU=$(echo "$RAW_URL_KSU" | tr -d ' ')
           git clone --depth=1 -b legacy "$CLEAN_URL_KSU" KernelSU-Next
           
-          # Запуск официального установщика для ветки legacy
+          # Запуск установщика (он создает симлинк на папку KernelSU-Next)
           bash KernelSU-Next/kernel/setup.sh legacy
           
-          # Фикс пространства имен применяется ПОСЛЕ создания символических ссылок установщиком
-          sed -i "s/\&init_user_ns/current_user_ns()/g" drivers/kernelsu/ksu.c || true
-          rm -rf KernelSU-Next
+          # Фикс пространства имен применяется по реальному пути, куда указывает симлинк
+          sed -i "s/\&init_user_ns/current_user_ns()/g" KernelSU-Next/kernel/drivers/ksu.c || true
           
-          # 2. Скачивание и точная интеграция файлов SUSFS для ветки kernel-4.14
+          # 2. Скачивание и точная интеграция патчей SUSFS для ветки kernel-4.14
           RAW_URL_SUSFS="https://gitlab.com/simonpunk/susfs4ksu.git"
           CLEAN_URL_SUSFS=$(echo "$RAW_URL_SUSFS" | tr -d ' ')
           git clone --depth=1 "$CLEAN_URL_SUSFS" -b kernel-4.14 susfs_src
           
-          # Копирование структуры файлов SUSFS под ядро 4.14
-          cp susfs_src/kernel/* drivers/kernelsu/ || true
-          cp susfs_src/fs/susfs.c fs/
-          cp susfs_src/include/linux/susfs.h include/linux/
+          # Копирование исходных файлов SUSFS из директории kernel_patches (для ядра 4.14)
+          cp susfs_src/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU-Next/kernel/ || true
+          cp susfs_src/kernel_patches/fs/susfs.c fs/
+          cp susfs_src/kernel_patches/include/linux/susfs.h include/linux/
           
-          # Применение патча модификации системных вызовов ядра 4.14
-          patch -p1 < susfs_src/4.14/50_add_susfs_in_kernel-4.14.patch || true
+          # Применение патча SUSFS для KernelSU-Next
+          cd KernelSU-Next/kernel
+          patch -p1 < 10_enable_susfs_for_ksu.patch || true
+          
+          # Возвращаемся в корень ядра и применяем патч системных вызовов vfs ядра 4.14
+          cd $GITHUB_WORKSPACE/kernel
+          patch -p1 < susfs_src/kernel_patches/4.14/50_add_susfs_in_kernel-4.14.patch || true
           rm -rf susfs_src
 
           # 3. Настройка Wireguard (если присутствует в репозитории)
